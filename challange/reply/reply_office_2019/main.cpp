@@ -86,17 +86,17 @@ class PathStatusQueue : public PathStatus
 {
 public:
     int x, y, startScore;
-    PathStatusQueue(int idNode, int score, string path, int x, int y) : PathStatus(idNode, score, path), x(x), y(y), startScore(score){};
+    PathStatusQueue(int idNode, int score, int sScore, string path, int x, int y) : PathStatus(idNode, 0, path), x(x), y(y), startScore(sScore){};
 };
 
 class CellStatus
 {
 private:
-    int globalScore, price, conflict; //always max
+    int globalScore, price; //always max
     map<int, PathStatus *> paths;
 
 public:
-    CellStatus(int price) : globalScore(0), price(price), conflict(0){};
+    CellStatus(int price) : globalScore(0), price(price){};
     bool Test()
     {
         if (price == 0)
@@ -105,38 +105,22 @@ public:
     }
     bool tryCell(PathStatusQueue const &agentPath, char move)
     {
-        int newScore = agentPath.score - price;
-        if (price > 0 && newScore > 0 && agentPath.path.size() <= 75)
+        int newScore = agentPath.score + price;
+        PathStatus *targetStatus = paths[agentPath.idNode];
+        if (price > 0 && newScore < agentPath.startScore && !targetStatus)
         {
-            PathStatus *targetStatus = paths[agentPath.idNode];
-            if (targetStatus != NULL)
+
+            paths[agentPath.idNode] = new PathStatus(agentPath.idNode, newScore, agentPath.path + move);
+            if (paths.size() > 1)
             {
-                //exist
-                if (newScore > (*targetStatus).score)
-                {
-                    globalScore += newScore - (*targetStatus).score;
-                    (*targetStatus).path = agentPath.path + move;
-                    (*targetStatus).score = newScore;
-                    return true;
-                }
+                globalScore += agentPath.startScore - newScore + price;
+                //cout << globalScore << " | " << agentPath.startScore - newScore << " | " << agentPath.path.size() + 1 << " | " << paths.size() << endl;
                 return false;
             }
-            else
-            {
-                paths[agentPath.idNode] = new PathStatus(agentPath.idNode, newScore, agentPath.path + move);
-                globalScore += newScore;
-                if (paths.size() > 1)
-                    return false;
-                return true;
-            }
-        }
-        return false;
-    }
-    bool changed(PathStatusQueue const &agentPath)
-    {
-        PathStatus *targetStatus = paths[agentPath.idNode];
-        if (targetStatus->score == agentPath.score)
+            globalScore += agentPath.startScore - newScore;
+            //cout << globalScore << " | " << agentPath.startScore - newScore << " | " << agentPath.path.size() + 1 << " | " << paths.size() << endl;
             return true;
+        }
         return false;
     }
 };
@@ -192,54 +176,65 @@ auto Map::ExpandCustomer()
 {
     int maxX, maxY;
     Tracker tracker("Expansion Customer Algo");
-    queue<PathStatusQueue *> pathQueue;
+    vector<PathStatusQueue *> pathHeap;
     PathStatusQueue *targetPath;
     vector<vector<CellStatus *>> expansionMap;
     for (auto &y : mapConverted)
     {
         expansionMap.resize(expansionMap.size() + 1);
         for (auto &x : y)
-        {
             expansionMap[expansionMap.size() - 1].push_back(new CellStatus(x));
-        }
     }
     maxX = expansionMap[0].size() - 1;
     maxY = expansionMap.size() - 1;
     // Inizialization
     for (int i = 0; i < customers.size(); i++)
     {
-        targetPath = new PathStatusQueue(i, (*customers[i]).reward, "", (*customers[i]).x, (*customers[i]).y);
+        targetPath = new PathStatusQueue(i, (*customers[i]).reward, (*customers[i]).reward, "", (*customers[i]).x, (*customers[i]).y);
         if (expansionMap[(*targetPath).y][(*targetPath).x]->tryCell(*targetPath, '0'))
-            pathQueue.push(targetPath);
+        {
+            pathHeap.push_back(targetPath);
+            push_heap(pathHeap.begin(), pathHeap.end(), [](PathStatusQueue *a, PathStatusQueue *b) { return a->score < b->score; });
+        }
         else
             delete targetPath;
     }
     // Expansion
 
     tracker.Start();
-    while (!pathQueue.empty())
+    while (pathHeap.size())
     {
-        targetPath = pathQueue.front();
+        targetPath = pathHeap.front();
+        pop_heap(pathHeap.begin(), pathHeap.end(), [](PathStatusQueue *a, PathStatusQueue *b) { return a->score < b->score; });
+        pathHeap.pop_back();
         if ((*targetPath).x > 0 &&
             expansionMap[(*targetPath).y][(*targetPath).x - 1]->tryCell(*targetPath, 'L'))
+        {
             // go L
-            pathQueue.push(new PathStatusQueue(targetPath->idNode, targetPath->score - mapConverted[targetPath->y][targetPath->x - 1], targetPath->path + 'L', targetPath->x - 1, targetPath->y));
-
+            pathHeap.push_back(new PathStatusQueue(targetPath->idNode, targetPath->score + mapConverted[targetPath->y][targetPath->x - 1], targetPath->startScore, targetPath->path + 'L', targetPath->x - 1, targetPath->y));
+            push_heap(pathHeap.begin(), pathHeap.end(), [](PathStatusQueue *a, PathStatusQueue *b) { return a->score < b->score; });
+        }
         if ((*targetPath).x < maxX &&
             expansionMap[(*targetPath).y][(*targetPath).x + 1]->tryCell(*targetPath, 'R'))
+        {
             // go R
-            pathQueue.push(new PathStatusQueue(targetPath->idNode, targetPath->score - mapConverted[targetPath->y][targetPath->x + 1], targetPath->path + 'R', targetPath->x + 1, targetPath->y));
-
+            pathHeap.push_back(new PathStatusQueue(targetPath->idNode, targetPath->score + mapConverted[targetPath->y][targetPath->x + 1], targetPath->startScore, targetPath->path + 'R', targetPath->x + 1, targetPath->y));
+            push_heap(pathHeap.begin(), pathHeap.end(), [](PathStatusQueue *a, PathStatusQueue *b) { return a->score < b->score; });
+        }
         if ((*targetPath).y > 0 &&
             expansionMap[(*targetPath).y - 1][(*targetPath).x]->tryCell(*targetPath, 'U'))
+        {
             // go U
-            pathQueue.push(new PathStatusQueue(targetPath->idNode, targetPath->score - mapConverted[targetPath->y - 1][targetPath->x], targetPath->path + 'U', targetPath->x, targetPath->y - 1));
-
+            pathHeap.push_back(new PathStatusQueue(targetPath->idNode, targetPath->score + mapConverted[targetPath->y - 1][targetPath->x], targetPath->startScore, targetPath->path + 'U', targetPath->x, targetPath->y - 1));
+            push_heap(pathHeap.begin(), pathHeap.end(), [](PathStatusQueue *a, PathStatusQueue *b) { return a->score < b->score; });
+        }
         if ((*targetPath).y < maxY &&
             expansionMap[(*targetPath).y + 1][(*targetPath).x]->tryCell(*targetPath, 'D'))
+        {
             // go D
-            pathQueue.push(new PathStatusQueue(targetPath->idNode, targetPath->score - mapConverted[targetPath->y + 1][targetPath->x], targetPath->path + 'D', targetPath->x, targetPath->y + 1));
-        pathQueue.pop();
+            pathHeap.push_back(new PathStatusQueue(targetPath->idNode, targetPath->score + mapConverted[targetPath->y + 1][targetPath->x], targetPath->startScore, targetPath->path + 'D', targetPath->x, targetPath->y + 1));
+            push_heap(pathHeap.begin(), pathHeap.end(), [](PathStatusQueue *a, PathStatusQueue *b) { return a->score < b->score; });
+        }
         delete targetPath;
     }
     tracker.Stop();
