@@ -4,22 +4,11 @@
 #include <string>
 #include <map>
 #include <queue>
+
 #include <chrono>
 #include <ctime>
 using namespace std;
 using namespace std::chrono;
-
-/*
-    auto start = system_clock::now();
-    -----Function to Track-----
-    auto end = system_clock::now();
- 
-    duration<double> elapsed_seconds = end-start;
-    time_t end_time = system_clock::to_time_t(end);
- 
-    cout << "finished computation at " << ctime(&end_time)
-              << "elapsed time: " << elapsed_seconds.count() << "s\n";
-*/
 
 class Tracker
 {

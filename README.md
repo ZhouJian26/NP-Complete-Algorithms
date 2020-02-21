@@ -1,12 +1,11 @@
 # NP Complete Algorithms
 
-## To Do
+This is a collection of NP-Problems from past competition that I am trying to solve.
 
-- Algoritmo via matrice binaria per
-  - ricerca prossimo nodo migliore
-  - ricerca intersezione stringa
-- copertura geometrica nodi e percorsi
+## Google Hash Code
 
-## Organizzazione
+- [Book scanning | Online Qualification Round(2020)]()
 
-Nella cartella `algorithms`, ci sono per ogni algoritmo una cartella nominata con un nome significativo e i file di codice con un readme.md che descrive l'idea, implementazione e uso della librerie e funzioni.
+## Reply Challange
+
+Coming soon
