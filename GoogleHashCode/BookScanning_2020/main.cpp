@@ -12,20 +12,17 @@ private:
     bool taken;
 
 public:
-    Book(int id) : id(id), spreadLib(0), taken(false)
+    Book(int id) : id(id), spreadLib(0), rarity(0), taken(false)
     {
         cin >> reward;
     };
     int getReward() { return reward; }
     bool isTaken() { return taken; }
-    int getId()
-    {
-        return id;
-    }
     int takeIt()
     {
         taken = true;
         reward = 0;
+        minusSpread();
         return id;
     }
     void plusSpread()
@@ -46,14 +43,13 @@ public:
 class Library
 {
 private:
-    int id, signupTime, perDayBooks, nBookTaken;
-    //bool taken;
-    float rarityOverallBooks, scoreLib;
+    int id, signupTime, perDayBooks, nBookTaken, nBookOut;
+    float rarityOverallBooks, scoreLib, rarityOverallBooksOut;
     vector<Book *> books;
     string responseFinal;
 
 public:
-    Library(int id, vector<Book *> &vBooksVector, int remDays) : id(id), nBookTaken(0), /* taken(false),*/ responseFinal("")
+    Library(int id, vector<Book *> &vBooksVector, int remDays) : id(id), nBookTaken(0), responseFinal("")
     {
         int idBook, nBook;
         cin >> nBook >> signupTime >> perDayBooks;
@@ -63,8 +59,7 @@ public:
             books.push_back(vBooksVector[idBook]);
             vBooksVector[idBook]->plusSpread();
         }
-        sort(books.begin(), books.end(), [](Book *a, Book *b) { return a->getReward() < b->getReward(); });
-        updateLibScore(remDays);
+        sort(books.begin(), books.end(), [](Book *a, Book *b) { return a->getReward() > b->getReward(); });
     }
     bool takeIt(int remDays)
     {
@@ -75,8 +70,8 @@ public:
             return false;
         sort(books.begin(), books.end(), [](Book *a, Book *b) {
             if (a->getReward() != b->getReward())
-                return a->getReward() < b->getReward();
-            return a->getRarity() < b->getRarity();
+                return a->getReward() > b->getReward();
+            return a->getRarity() > b->getRarity();
         });
         for (auto &x : books) // books is already sorted
         {
@@ -112,35 +107,49 @@ public:
     void updateLibScore(int remDays)
     {
         rarityOverallBooks = 0;
+        nBookOut = 0;
         nBookTaken = 0;
+        rarityOverallBooksOut = 0;
         scoreLib = 0.0;
         int toPick = (remDays - signupTime) * perDayBooks; // how many book can take
         for (auto &x : books)
         {
-            if (!toPick)
-                break;
-            if (!x->isTaken())
+            if (toPick)
             {
-                rarityOverallBooks += x->getRarity();
-                scoreLib += x->getReward();
-                nBookTaken++;
-                toPick--;
+                if (!x->isTaken())
+                {
+                    rarityOverallBooks += x->getRarity();
+                    scoreLib += x->getReward();
+                    nBookTaken++;
+                    toPick--;
+                }
+            }
+            else
+            {
+                if (!x->isTaken())
+                {
+                    nBookOut++;
+                    rarityOverallBooksOut += x->getRarity();
+                }
             }
         }
-        return;
-        scoreLib = scoreLib / (signupTime + remDays); //avg of lib score
+        scoreLib = scoreLib / ((remDays)*signupTime); //delta avg of lib score
     }
     float getLibScore() { return scoreLib; }
     float getRarityOverallBooks() { return rarityOverallBooks; }
+    float getRarityOverallBooksOut() { return rarityOverallBooksOut; }
+    int getBookOut() { return nBookOut; }
     int duration() { return nBookTaken / perDayBooks; }
 };
 bool compLibOp(Library *a, Library *b)
 {
     if (a->getLibScore() != b->getLibScore())
         return a->getLibScore() < b->getLibScore();
-    if (a->getNumBookTaken() != b->getNumBookTaken())
-        return a->getNumBookTaken() < b->getNumBookTaken();
-    return a->getRarityOverallBooks() < b->getRarityOverallBooks();
+    if (a->getRarityOverallBooksOut() != b->getRarityOverallBooksOut())
+        return a->getRarityOverallBooksOut() > b->getRarityOverallBooksOut();
+    if (a->getRarityOverallBooks() != b->getRarityOverallBooks())
+        return a->getRarityOverallBooks() < b->getRarityOverallBooks();
+    return a->getNumBookTaken() > b->getNumBookTaken(); //dubito, confronto con teorico cioè quanti non riesce a fare quindi sarebbe meglio farlo a chi completa
 }
 int main()
 {
@@ -167,12 +176,16 @@ int main()
         //LibraryVector.push_back(pLibrary);
     }
     remDays = days;
-    make_heap(LibraryHeap.begin(), LibraryHeap.begin(), &compLibOp);
+    for (auto &x : LibraryHeap)
+        x->updateLibScore(remDays);
+    make_heap(LibraryHeap.begin(), LibraryHeap.end(), compLibOp);
     while (remDays > 0 && nBooks > 0 && LibraryHeap.size())
     {
         needReHeap = false;
         pLibrary = LibraryHeap.front();
-        //bool isNullStr = pLibrary->takeIt(remDays);
+        //cout << pLibrary->getLibScore() << " " << pLibrary->getRarityOverallBooks() << endl;
+        pop_heap(LibraryHeap.begin(), LibraryHeap.end(), compLibOp);
+        LibraryHeap.pop_back();
         if (pLibrary->takeIt(remDays))
         {
             response.push_back(pLibrary);
@@ -180,13 +193,11 @@ int main()
             nBooks -= pLibrary->getNumBookTaken();
             needReHeap = true;
         }
-        pop_heap(LibraryHeap.begin(), LibraryHeap.end(), &compLibOp);
-        LibraryHeap.pop_back();
         if (needReHeap)
         {
             for (auto &x : LibraryHeap)
                 x->updateLibScore(remDays);
-            make_heap(LibraryHeap.begin(), LibraryHeap.begin(), &compLibOp);
+            make_heap(LibraryHeap.begin(), LibraryHeap.end(), compLibOp);
         }
     }
     cout << response.size() << endl;

@@ -1,5 +1,3 @@
-let counter=1
-
 echo "Preparing Working Space"
 rm -rf ./Output
 mkdir -p Output
@@ -12,9 +10,10 @@ cp ./main.cpp ./Output/
 
 for entry in "Input"/*
 do
-echo "Running command: cat $entry | ./Output/main > Output/$counter.txt"
-cat $entry | "./Output/main" > "Output/$counter.txt"
-((counter++))
+s=${entry%.*}
+s=${s#*/}
+echo "Running command: cat $entry | ./Output/main > Output/$s.out.txt"
+cat $entry | "./Output/main" > "Output/$s.out.txt"
 done
 
 echo "Deleting compiled file"
